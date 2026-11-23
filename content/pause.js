@@ -18,6 +18,7 @@
   let holding = false; // page hidden + media held
   let overlay = null; // { host, root, els, timer, ... }
   let heartbeatSite = null;
+  let askOnReturn = false; // "Ask again when I switch back to the tab"
   let savedRootStyle = null;
   let mediaSweep = null;
   const heldMedia = new Map(); // element -> { muted, resume }
@@ -416,7 +417,9 @@
     o.leaving = true;
     o.els.nope.style.opacity = "0.6";
 
-    const canGoBack = history.length > 1;
+    // Pausing on a tab you switched back to: "back" would usually just be
+    // another page of the same site, so leave by closing the tab instead.
+    const canGoBack = !o.info.returning && history.length > 1;
     try {
       await send({ type: "nope", close: !canGoBack });
     } catch {
@@ -438,8 +441,10 @@
     history.back();
   }
 
-  /* ---------- "away" mode heartbeat ---------- */
+  /* ---------- after the page is let through ---------- */
 
+  // Keeps "away" mode's last-active time fresh, and handles switching back
+  // to this tab.
   function startHeartbeat(site) {
     if (!site || heartbeatSite) return;
     heartbeatSite = site;
@@ -451,8 +456,45 @@
     };
     beatIfVisible();
     setInterval(beatIfVisible, 30_000);
-    document.addEventListener("visibilitychange", beat);
     window.addEventListener("pagehide", beat);
+
+    document.addEventListener("visibilitychange", () => {
+      if (holding) return;
+      if (document.visibilityState === "hidden") {
+        beat();
+        // Hide now, so the page can't flash before the check on return.
+        if (askOnReturn) hidePage();
+      } else {
+        checkOnReturn(beat);
+      }
+    });
+  }
+
+  async function checkOnReturn(beat) {
+    let res = null;
+    try {
+      res = await send({ type: "check", host: location.hostname, reason: "return" });
+    } catch {
+      // Extension unreachable: just show the page.
+    }
+    if (res && typeof res.askOnReturn === "boolean") askOnReturn = res.askOnReturn;
+    if (holding || document.visibilityState !== "visible") return;
+    if (res && res.prompt) {
+      hold();
+      showOverlay({ ...res, returning: true });
+    } else {
+      showPage();
+      beat();
+    }
+  }
+
+  // Follow the setting live, so turning it on takes effect in open tabs.
+  try {
+    browser.storage.onChanged.addListener((changes, area) => {
+      if (area === "local" && changes.askOnReturn) askOnReturn = !!changes.askOnReturn.newValue;
+    });
+  } catch {
+    // storage API unavailable; the value from each check is used instead.
   }
 
   /* ---------- deciding ---------- */
@@ -467,6 +509,7 @@
       // side of pausing; Continue still works without the background.
       res = { prompt: true, site: location.hostname, seconds: 10, message: DEFAULT_MESSAGE };
     }
+    if (res && typeof res.askOnReturn === "boolean") askOnReturn = res.askOnReturn;
     if (res && res.prompt) {
       showOverlay(res);
     } else {

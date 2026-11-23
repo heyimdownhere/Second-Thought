@@ -286,7 +286,10 @@ input:focus-visible { outline: none; }
 
 .choice + .choice { border-top: 1px solid var(--line); }
 
-.choice input[type="radio"] {
+.toggles { margin-top: 8px; }
+
+.choice input[type="radio"],
+.choice input[type="checkbox"] {
   flex: none;
   width: 20px;
   height: 20px;

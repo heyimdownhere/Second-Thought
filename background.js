@@ -8,7 +8,10 @@
  *
  * storage.local:   sites, seconds, message, mode, awayMinutes, turnedBack,
  *                  "active:<site>" (last time a visible tab was on <site>)
- * storage.session: "allow:<tabId>" (the site this tab already got past)
+ * storage.session: "allow:<tabId>"    (the site this tab already got past)
+ *                  "restored:<tabId>" (tab was already open on <site> when
+ *                                      Firefox started)
+ *                  "scanned"          (startup scan done for this session)
  */
 
 const DEFAULTS = {
@@ -17,6 +20,8 @@ const DEFAULTS = {
   message: "Is this really needed?",
   mode: "every", // "every" | "away"
   awayMinutes: 15,
+  askOnRestore: true, // ask in tabs Firefox reopens at startup
+  askOnReturn: false, // ask again when switching back to an open tab
   turnedBack: 0,
 };
 
@@ -50,6 +55,7 @@ function siteForUrl(url, sites) {
 }
 
 const allowKey = (tabId) => `allow:${tabId}`;
+const restoredKey = (tabId) => `restored:${tabId}`;
 const activeKey = (site) => `active:${site}`;
 
 async function getSettings() {
@@ -105,18 +111,63 @@ async function doSync() {
   }
 }
 
+/* ---------- tabs Firefox reopens at startup ---------- */
+
+// storage.session is empty whenever Firefox (or the add-on) starts. The first
+// time this page runs in a session, remember which tabs are already open on
+// a listed site. If "Ask in tabs Firefox reopens" is off, their first load
+// skips the pause.
+async function scanOpenTabs() {
+  const { scanned } = await browser.storage.session.get("scanned");
+  if (scanned) return;
+  const [{ sites }, tabs] = await Promise.all([getSettings(), browser.tabs.query({})]);
+  const marks = { scanned: true };
+  for (const tab of tabs) {
+    const site = siteForUrl(tab.url, sites);
+    if (site) marks[restoredKey(tab.id)] = site;
+  }
+  await browser.storage.session.set(marks);
+}
+
+// Started as soon as this page loads; handlers wait for it.
+const sessionReady = scanOpenTabs().catch((e) => console.error("Second Thought: scan failed", e));
+
+// Returns the site a reopened tab was on, once (the mark is removed).
+async function takeRestoredMark(tabId) {
+  const key = restoredKey(tabId);
+  const { [key]: site } = await browser.storage.session.get(key);
+  if (site) await browser.storage.session.remove(key);
+  return site || null;
+}
+
 /* ---------- visit logic ---------- */
 
-async function handleCheck(host, tabId) {
+// reason: "load" (page loaded) or "return" (tab became visible again).
+async function handleCheck(host, tabId, reason) {
+  await sessionReady;
   const s = await getSettings();
   const site = siteForHost(host, s.sites);
   if (!site) return { prompt: false };
 
-  let prompt = true;
-  if (s.mode === "away") {
+  const awayTooLong = async () => {
     const key = activeKey(site);
     const { [key]: last = 0 } = await browser.storage.local.get(key);
-    prompt = Date.now() - last > s.awayMinutes * 60_000;
+    return Date.now() - last > s.awayMinutes * 60_000;
+  };
+
+  const restored = reason === "return" || tabId == null ? null : await takeRestoredMark(tabId);
+
+  let prompt = true;
+  if (reason === "return") {
+    prompt = s.askOnReturn && (s.mode !== "away" || (await awayTooLong()));
+  } else if (restored === site && !s.askOnRestore) {
+    prompt = false;
+    await Promise.all([
+      browser.storage.session.set({ [allowKey(tabId)]: site }),
+      browser.storage.local.set({ [activeKey(site)]: Date.now() }),
+    ]);
+  } else if (s.mode === "away") {
+    prompt = await awayTooLong();
   } else if (tabId != null) {
     const key = allowKey(tabId);
     const { [key]: allowed } = await browser.storage.session.get(key);
@@ -126,6 +177,7 @@ async function handleCheck(host, tabId) {
   return {
     prompt,
     site,
+    askOnReturn: !!s.askOnReturn,
     seconds: s.seconds,
     message: String(s.message || "").trim() || DEFAULTS.message,
   };
@@ -167,7 +219,7 @@ browser.runtime.onMessage.addListener((msg, sender) => {
   const tabId = sender.tab ? sender.tab.id : undefined;
   switch (msg && msg.type) {
     case "check":
-      return handleCheck(msg.host, tabId);
+      return handleCheck(msg.host, tabId, msg.reason === "return" ? "return" : "load");
     case "continue":
       return handleContinue(msg.site, tabId);
     case "active":
@@ -180,23 +232,25 @@ browser.runtime.onMessage.addListener((msg, sender) => {
   return undefined;
 });
 
-// A tab that leaves the site loses its "already continued" pass.
+// A tab that leaves the site loses its pass and its "reopened" mark.
+// about:blank is skipped: a tab can show it briefly while loading.
 browser.tabs.onUpdated.addListener(
   async (tabId, changeInfo) => {
-    if (!changeInfo.url) return;
-    const key = allowKey(tabId);
-    const { [key]: allowed } = await browser.storage.session.get(key);
-    if (!allowed) return;
+    if (!changeInfo.url || changeInfo.url === "about:blank") return;
+    await sessionReady;
+    const keys = [allowKey(tabId), restoredKey(tabId)];
+    const passes = await browser.storage.session.get(keys);
+    if (!Object.keys(passes).length) return;
     const { sites } = await getSettings();
-    if (siteForUrl(changeInfo.url, sites) !== allowed) {
-      await browser.storage.session.remove(key);
-    }
+    const site = siteForUrl(changeInfo.url, sites);
+    const stale = keys.filter((k) => k in passes && passes[k] !== site);
+    if (stale.length) await browser.storage.session.remove(stale);
   },
   { properties: ["url"] }
 );
 
 browser.tabs.onRemoved.addListener((tabId) => {
-  browser.storage.session.remove(allowKey(tabId));
+  browser.storage.session.remove([allowKey(tabId), restoredKey(tabId)]);
 });
 
 browser.storage.onChanged.addListener((changes, area) => {

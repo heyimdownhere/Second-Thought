@@ -8,6 +8,8 @@ const DEFAULTS = {
   message: "Is this really needed?",
   mode: "every",
   awayMinutes: 15,
+  askOnRestore: true,
+  askOnReturn: false,
   turnedBack: 0,
 };
 const PRESETS = [5, 10, 30, 60];
@@ -24,6 +26,8 @@ const els = {
   message: $("message"),
   modes: [...document.querySelectorAll('input[name="mode"]')],
   awayMinutes: $("away-minutes"),
+  askRestore: $("ask-restore"),
+  askReturn: $("ask-return"),
   counter: $("counter"),
   toast: $("toast"),
 };
@@ -298,6 +302,21 @@ els.awayMinutes.addEventListener("blur", () => {
   renderMode();
 });
 
+for (const [el, key] of [
+  [els.askRestore, "askOnRestore"],
+  [els.askReturn, "askOnReturn"],
+]) {
+  el.addEventListener("change", () => {
+    state[key] = el.checked;
+    save({ [key]: el.checked });
+  });
+}
+
+function renderToggles() {
+  els.askRestore.checked = !!state.askOnRestore;
+  els.askReturn.checked = !!state.askOnReturn;
+}
+
 /* ---------- counter ---------- */
 
 function renderCounter() {
@@ -312,6 +331,7 @@ function renderAll() {
   renderSeconds();
   if (document.activeElement !== els.message) els.message.value = state.message;
   renderMode();
+  renderToggles();
   renderCounter();
 }
 
