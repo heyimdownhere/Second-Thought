@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Second Thought</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <header>
+      <img src="../icons/icon-96.png" alt="" width="32" height="32">
+      <h1>Second Thought</h1>
+    </header>
+
+    <section aria-labelledby="sites-h">
+      <h2 id="sites-h">Sites</h2>
+      <form id="add-form" class="add" autocomplete="off" novalidate>
+        <input id="site-input" type="text" inputmode="url" autocapitalize="off"
+               spellcheck="false" placeholder="reddit.com" aria-label="Site to add"
+               aria-describedby="site-error">
+        <button type="submit" class="primary">Add</button>
+      </form>
+      <p id="site-error" class="error" role="alert" hidden></p>
+      <ul id="site-list" class="sites"></ul>
+      <p id="sites-empty" class="empty">Add a site you'd like to think twice about.</p>
+    </section>
+
+    <section aria-labelledby="wait-h">
+      <h2 id="wait-h">Wait time</h2>
+      <div class="segmented" role="group" aria-labelledby="wait-h">
+        <button type="button" data-seconds="5">5s</button>
+        <button type="button" data-seconds="10">10s</button>
+        <button type="button" data-seconds="30">30s</button>
+        <button type="button" data-seconds="60">60s</button>
+        <label class="custom">
+          <input id="custom-seconds" type="number" min="1" max="3600" step="1"
+                 inputmode="numeric" placeholder="custom" aria-label="Custom wait in seconds">
+          <span aria-hidden="true">s</span>
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h2><label for="message">Message</label></h2>
+      <input id="message" type="text" maxlength="140" placeholder="Is this really needed?">
+    </section>
+
+    <section aria-labelledby="when-h">
+      <h2 id="when-h">When to ask</h2>
+      <div class="choices" role="radiogroup" aria-labelledby="when-h">
+        <label class="choice">
+          <input type="radio" name="mode" value="every">
+          <span>Every time I open the site</span>
+        </label>
+        <label class="choice">
+          <input type="radio" name="mode" value="away">
+          <span class="away">
+            <span>Only if I've been away for</span>
+            <span class="nowrap"><input id="away-minutes" type="number" min="1" max="1440"
+                   step="1" inputmode="numeric" aria-label="Minutes away"> minutes</span>
+          </span>
+        </label>
+      </div>
+    </section>
+
+    <footer id="counter"></footer>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="options.js"></script>
+</body>
+</html>
