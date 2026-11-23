@@ -43,7 +43,7 @@ Plain JS/HTML/CSS. No build step, no dependencies. The only tool is [`web-ext`](
 - **Pause screen:** at `document_start` the script hides `<html>` with inline `!important` styles, so neither CSP nor site CSS can undo them. It pauses and mutes every `<video>`/`<audio>`, including ones inside shadow roots, then asks the background script whether this visit needs a pause. The overlay lives in a closed shadow root. Continue and Nope restore or leave the page.
 - **Visits:** in *every time* mode, a per-tab pass (`allow:<tabId>` in `storage.session`) is set on Continue. It's cleared when the tab goes to another site or closes. In *away* mode, `active:<site>` in `storage.local` is refreshed every 30 s and on visibility changes while a visible tab is on the site.
 - **Back/Forward:** returning to a page from the back/forward cache counts as a new visit, so it's checked again.
-- **Restarting Firefox:** tabs that are already open on a listed site when Firefox (or the add-on) starts get a one-time pass, so reopening the browser doesn't pause you. The pass works like tapping Continue: it ends when the tab leaves the site.
+- **Restarting Firefox:** passes live in `storage.session`, which Firefox clears when it quits. So a tab Firefox reopens on a listed site asks again (in *away* mode, only if you've been away long enough). This is intentional.
 
 ## Develop and test
 
@@ -75,7 +75,7 @@ npx web-ext build                # makes web-ext-artifacts/second_thought-<versi
 4. Click a Reddit link from another site → **Nope** → you're back on that site. Open Reddit in a fresh tab → **Nope** → the tab closes. The counter in settings goes up.
 5. Switch to *away* mode with 1 minute. Leave Reddit for over a minute and come back → it prompts. Come back sooner → it doesn't.
 6. `old.reddit.com` is covered. Remove `reddit.com` → no more prompts.
-7. With Reddit open in a tab, quit Firefox and start it again → the reopened Reddit tab doesn't prompt. Opening Reddit in a new tab still does.
+7. With Reddit open in a tab (in *every time* mode), quit Firefox and start it again → the reopened Reddit tab asks again.
 
 ## Publish on addons.mozilla.org (AMO)
 
