@@ -18,11 +18,11 @@ Tap the toolbar button (on Android: **⋮ menu → Extensions → Second Thought
 | Setting | What it does |
 |---|---|
 | **Sites** | Type `reddit.com` (or paste any URL) and tap **Add**. Firefox asks for permission for that one site. A site also covers its subdomains (`old.reddit.com`, `m.reddit.com`). Tap ✕ to remove a site. |
-| **Wait time** | 5 / 10 / 30 / 60 seconds, or type your own. |
-| **Message** | What the pause screen asks you. |
+| **Wait time** | 5 / 10 / 30 / 60 seconds, or tap **Custom** and type any number. |
+| **Message** | Pick one of five messages, or choose **Write my own…** and type yours. |
 | **When to ask** | *Every time I open the site*: once you continue, that tab stays unlocked until it leaves the site. *Only if I've been away for N minutes*: no pause if you were on the site recently. |
-| **Ask in tabs Firefox reopens on startup** | On (default): a tab Firefox reopens on a listed site asks again. Off: tabs that were already open when Firefox started go straight through. |
-| **Ask again when I switch back** | Off (default). On: coming back to a site's tab (from another tab or app, or after locking the phone) asks again. In *away* mode it only asks if you were gone longer than your minutes. "Nope" on this pause closes the tab. |
+| **Also ask after Firefox restarts** | On (default): a tab Firefox reopens on a listed site asks again. Off: tabs that were already open when Firefox started go straight through. |
+| **Also ask when I switch back** | Off (default). On: coming back to a site's tab (from another tab or app, or after locking the phone) asks again. In *away* mode it only asks if you were gone longer than your minutes. "Nope" on this pause closes the tab. |
 
 Changes save as you make them.
 
@@ -45,8 +45,8 @@ Plain JS/HTML/CSS. No build step, no dependencies. The only tool is [`web-ext`](
 - **Pause screen:** at `document_start` the script hides `<html>` with inline `!important` styles, so neither CSP nor site CSS can undo them. It pauses and mutes every `<video>`/`<audio>`, including ones inside shadow roots, then asks the background script whether this visit needs a pause. The overlay lives in a closed shadow root. Continue and Nope restore or leave the page.
 - **Visits:** in *every time* mode, a per-tab pass (`allow:<tabId>` in `storage.session`) is set on Continue. It's cleared when the tab goes to another site or closes. In *away* mode, `active:<site>` in `storage.local` is refreshed every 30 s and on visibility changes while a visible tab is on the site.
 - **Back/Forward:** returning to a page from the back/forward cache counts as a new visit, so it's checked again.
-- **Restarting Firefox:** passes live in `storage.session`, which Firefox clears when it quits, so a reopened tab asks again by default. The first time the background runs in a session, it notes which tabs are already open on a listed site (`restored:<tabId>`). With *Ask in tabs Firefox reopens* off, that mark lets the tab's first load through.
-- **Switching back:** with *Ask again when I switch back* on, the content script hides the page as soon as the tab becomes hidden. When the tab is visible again, it asks the background (`reason: "return"`) and either shows the pause or reveals the page.
+- **Restarting Firefox:** passes live in `storage.session`, which Firefox clears when it quits, so a reopened tab asks again by default. The first time the background runs in a session, it notes which tabs are already open on a listed site (`restored:<tabId>`). With *Also ask after Firefox restarts* off, that mark lets the tab's first load through.
+- **Switching back:** with *Also ask when I switch back* on, the content script hides the page as soon as the tab becomes hidden. When the tab is visible again, it asks the background (`reason: "return"`) and either shows the pause or reveals the page.
 
 ## Develop and test
 
@@ -78,8 +78,8 @@ npx web-ext build                # makes web-ext-artifacts/second_thought-<versi
 4. Click a Reddit link from another site → **Nope** → you're back on that site. Open Reddit in a fresh tab → **Nope** → the tab closes. The counter in settings goes up.
 5. Switch to *away* mode with 1 minute. Leave Reddit for over a minute and come back → it prompts. Come back sooner → it doesn't.
 6. `old.reddit.com` is covered. Remove `reddit.com` → no more prompts.
-7. With Reddit open in a tab (in *every time* mode), quit Firefox and start it again → the reopened Reddit tab asks again. Turn off *Ask in tabs Firefox reopens* and repeat → it doesn't.
-8. Turn on *Ask again when I switch back*. Continue into Reddit, switch to another tab, then come back → the pause shows again. "Nope" closes the tab.
+7. With Reddit open in a tab (in *every time* mode), quit Firefox and start it again → the reopened Reddit tab asks again. Turn off *Also ask after Firefox restarts* and repeat → it doesn't.
+8. Turn on *Also ask when I switch back*. Continue into Reddit, switch to another tab, then come back → the pause shows again. "Nope" closes the tab.
 
 ## Publish on addons.mozilla.org (AMO)
 

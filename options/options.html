@@ -11,8 +11,11 @@
 <body>
   <main>
     <header>
-      <img src="../icons/icon.svg" alt="" width="32" height="32">
-      <h1>Second Thought</h1>
+      <img src="../icons/icon.svg" alt="" width="40" height="40">
+      <div>
+        <h1>Second Thought</h1>
+        <p class="tagline">A short pause before distracting sites.</p>
+      </div>
     </header>
 
     <section aria-labelledby="sites-h">
@@ -35,17 +38,22 @@
         <button type="button" data-seconds="10">10s</button>
         <button type="button" data-seconds="30">30s</button>
         <button type="button" data-seconds="60">60s</button>
-        <label class="custom">
-          <input id="custom-seconds" type="number" min="1" max="3600" step="1"
-                 inputmode="numeric" placeholder="custom" aria-label="Custom wait in seconds">
-          <span aria-hidden="true">s</span>
-        </label>
+        <button type="button" id="custom-toggle">Custom</button>
       </div>
+      <label class="reveal" id="custom-row" hidden>
+        <input id="custom-seconds" type="number" min="1" max="3600" step="1"
+               inputmode="numeric" aria-label="Custom wait in seconds">
+        <span>seconds</span>
+      </label>
     </section>
 
     <section>
-      <h2><label for="message">Message</label></h2>
-      <input id="message" type="text" maxlength="140" placeholder="Is this really needed?">
+      <h2><label for="message-choice">Message</label></h2>
+      <div class="select">
+        <select id="message-choice"></select>
+      </div>
+      <input id="message" class="reveal-input" type="text" maxlength="140"
+             placeholder="Type your own message" aria-label="Your own message" hidden>
     </section>
 
     <section aria-labelledby="when-h">
@@ -65,13 +73,13 @@
         </label>
       </div>
       <div class="choices toggles">
-        <label class="choice">
-          <input id="ask-restore" type="checkbox">
-          <span>Ask in tabs Firefox reopens on startup</span>
+        <label class="choice switch-row">
+          <span>Also ask after Firefox restarts</span>
+          <input id="ask-restore" type="checkbox" class="switch" role="switch">
         </label>
-        <label class="choice">
-          <input id="ask-return" type="checkbox">
-          <span>Ask again when I switch back</span>
+        <label class="choice switch-row">
+          <span>Also ask when I switch back</span>
+          <input id="ask-return" type="checkbox" class="switch" role="switch">
         </label>
       </div>
     </section>

@@ -13,6 +13,14 @@ const DEFAULTS = {
   turnedBack: 0,
 };
 const PRESETS = [5, 10, 30, 60];
+const MESSAGES = [
+  "Is this really needed?",
+  "What were you about to do instead?",
+  "Will future you be glad you did this?",
+  "Is this the best use of your time right now?",
+  "Take a breath. Do you really want this?",
+];
+const CUSTOM = "custom";
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -22,7 +30,10 @@ const els = {
   list: $("site-list"),
   empty: $("sites-empty"),
   presets: [...document.querySelectorAll("[data-seconds]")],
+  customToggle: $("custom-toggle"),
+  customRow: $("custom-row"),
   custom: $("custom-seconds"),
+  messageChoice: $("message-choice"),
   message: $("message"),
   modes: [...document.querySelectorAll('input[name="mode"]')],
   awayMinutes: $("away-minutes"),
@@ -212,34 +223,42 @@ function renderSites() {
 
 /* ---------- wait time ---------- */
 
+let customSecondsOpen = false; // "Custom" tapped, even if the value is a preset
+
 function renderSeconds() {
-  const isPreset = PRESETS.includes(state.seconds);
+  const custom = customSecondsOpen || !PRESETS.includes(state.seconds);
   for (const b of els.presets) {
-    b.setAttribute("aria-pressed", String(Number(b.dataset.seconds) === state.seconds));
+    b.setAttribute("aria-pressed", String(!custom && Number(b.dataset.seconds) === state.seconds));
   }
+  els.customToggle.setAttribute("aria-pressed", String(custom));
+  els.customRow.hidden = !custom;
   if (document.activeElement !== els.custom) {
-    els.custom.value = isPreset ? "" : String(state.seconds);
+    els.custom.value = String(state.seconds);
     els.custom.removeAttribute("aria-invalid");
   }
-  els.custom.classList.toggle("active", !isPreset);
 }
 
 for (const b of els.presets) {
   b.addEventListener("click", () => {
+    customSecondsOpen = false;
     state.seconds = Number(b.dataset.seconds);
-    els.custom.value = "";
     renderSeconds();
     save({ seconds: state.seconds });
   });
 }
 
+els.customToggle.addEventListener("click", () => {
+  customSecondsOpen = true;
+  renderSeconds();
+  els.custom.focus();
+  els.custom.select();
+});
+
 const saveCustomSeconds = debounce(() => {
-  if (els.custom.value === "") return;
   const n = clampInt(els.custom.value, 1, 3600);
   els.custom.setAttribute("aria-invalid", n ? "false" : "true");
   if (!n || n === state.seconds) return;
   state.seconds = n;
-  renderSeconds();
   save({ seconds: n });
 }, 600);
 
@@ -251,17 +270,52 @@ els.custom.addEventListener("blur", () => {
 
 /* ---------- message ---------- */
 
+let customMessageOpen = false; // "Write my own…" chosen
+
+for (const [i, text] of MESSAGES.entries()) {
+  els.messageChoice.append(new Option(text, String(i)));
+}
+els.messageChoice.append(new Option("Write my own…", CUSTOM));
+
+function renderMessage() {
+  const preset = MESSAGES.indexOf(state.message);
+  const custom = customMessageOpen || preset < 0;
+  els.messageChoice.value = custom ? CUSTOM : String(preset);
+  els.message.hidden = !custom;
+  if (document.activeElement !== els.message && preset < 0) {
+    els.message.value = state.message;
+  }
+}
+
+els.messageChoice.addEventListener("change", () => {
+  if (els.messageChoice.value === CUSTOM) {
+    customMessageOpen = true;
+    els.message.value = MESSAGES.includes(state.message) ? "" : state.message;
+    renderMessage();
+    els.message.focus();
+    return;
+  }
+  customMessageOpen = false;
+  state.message = MESSAGES[Number(els.messageChoice.value)];
+  renderMessage();
+  save({ message: state.message });
+});
+
 const saveMessage = debounce(() => {
   const value = els.message.value.trim();
-  if (value === state.message) return;
+  if (!value || value === state.message) return;
   state.message = value;
   save({ message: value });
 }, 600);
 
 els.message.addEventListener("input", saveMessage);
 els.message.addEventListener("blur", () => {
-  if (!els.message.value.trim()) els.message.value = DEFAULTS.message;
   saveMessage.flush();
+  // Left empty: go back to showing the current message in the list.
+  if (!els.message.value.trim()) {
+    customMessageOpen = false;
+    renderMessage();
+  }
 });
 
 /* ---------- when to ask ---------- */
@@ -329,7 +383,7 @@ function renderCounter() {
 function renderAll() {
   renderSites();
   renderSeconds();
-  if (document.activeElement !== els.message) els.message.value = state.message;
+  renderMessage();
   renderMode();
   renderToggles();
   renderCounter();
