@@ -14,8 +14,26 @@
   --radius: 12px;
 }
 
+/* Theme: "Auto" follows the system; Light/Dark set data-theme on <html>. */
+:root[data-theme="light"] { color-scheme: light; }
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #141317;
+  --surface: #1e1d22;
+  --fg: #ecebf0;
+  --muted: #9a97a3;
+  --line: #2f2e35;
+  --accent: #a6a4ff;
+  --accent-fg: #15142a;
+  --accent-soft: rgba(166, 164, 255, 0.16);
+  --warn: #f2b85c;
+  --warn-soft: rgba(242, 184, 92, 0.14);
+  --error: #ffb4ab;
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #141317;
     --surface: #1e1d22;
     --fg: #ecebf0;

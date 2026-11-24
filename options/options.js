@@ -10,6 +10,7 @@ const DEFAULTS = {
   awayMinutes: 15,
   askOnRestore: true,
   askOnReturn: false,
+  theme: "auto", // "auto" | "light" | "dark"
   turnedBack: 0,
 };
 const PRESETS = [5, 10, 30, 60];
@@ -21,6 +22,24 @@ const MESSAGES = [
   "Take a breath. Do you really want this?",
 ];
 const CUSTOM = "custom";
+
+// Apply the last-used theme right away (localStorage is synchronous), so
+// the popup doesn't flash the wrong colors before storage.local loads.
+function applyTheme(theme) {
+  const t = theme === "light" || theme === "dark" ? theme : "auto";
+  if (t === "auto") document.documentElement.removeAttribute("data-theme");
+  else document.documentElement.setAttribute("data-theme", t);
+  try {
+    localStorage.setItem("theme", t);
+  } catch {
+    // Storage unavailable; the theme still applies for this view.
+  }
+}
+try {
+  applyTheme(localStorage.getItem("theme"));
+} catch {
+  // ignore
+}
 
 const $ = (id) => document.getElementById(id);
 const els = {
@@ -39,6 +58,7 @@ const els = {
   awayMinutes: $("away-minutes"),
   askRestore: $("ask-restore"),
   askReturn: $("ask-return"),
+  themes: [...document.querySelectorAll("[data-theme-choice]")],
   counter: $("counter"),
   toast: $("toast"),
 };
@@ -371,6 +391,23 @@ function renderToggles() {
   els.askReturn.checked = !!state.askOnReturn;
 }
 
+/* ---------- theme ---------- */
+
+function renderTheme() {
+  for (const b of els.themes) {
+    b.setAttribute("aria-pressed", String(b.dataset.themeChoice === state.theme));
+  }
+  applyTheme(state.theme);
+}
+
+for (const b of els.themes) {
+  b.addEventListener("click", () => {
+    state.theme = b.dataset.themeChoice;
+    renderTheme();
+    save({ theme: state.theme });
+  });
+}
+
 /* ---------- counter ---------- */
 
 function renderCounter() {
@@ -386,6 +423,7 @@ function renderAll() {
   renderMessage();
   renderMode();
   renderToggles();
+  renderTheme();
   renderCounter();
 }
 

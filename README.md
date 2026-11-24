@@ -23,6 +23,7 @@ Tap the toolbar button (on Android: **⋮ menu → Extensions → Second Thought
 | **When to ask** | *Every time I open the site*: once you continue, that tab stays unlocked until it leaves the site. *Only if I've been away for N minutes*: no pause if you were on the site recently. |
 | **Also ask after Firefox restarts** | On (default): a tab Firefox reopens on a listed site asks again. Off: tabs that were already open when Firefox started go straight through. |
 | **Also ask when I switch back** | Off (default). On: coming back to a site's tab (from another tab or app, or after locking the phone) asks again. In *away* mode it only asks if you were gone longer than your minutes. "Nope" on this pause closes the tab. |
+| **Theme** | *Auto* follows your system's light/dark setting. *Light* or *Dark* forces one for both the settings page and the pause screen. |
 
 Changes save as you make them.
 

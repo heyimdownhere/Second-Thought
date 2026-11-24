@@ -27,6 +27,7 @@ const DEFAULTS = {
   awayMinutes: 15,
   askOnRestore: true, // ask in tabs Firefox reopens at startup
   askOnReturn: false, // ask again when switching back to an open tab
+  theme: "auto", // pause screen + settings: "auto" | "light" | "dark"
   turnedBack: 0,
 };
 
@@ -182,6 +183,7 @@ async function handleCheck(host, tabId, reason, priv) {
     prompt,
     site,
     askOnReturn: !!s.askOnReturn,
+    theme: s.theme === "light" || s.theme === "dark" ? s.theme : "auto",
     seconds: s.seconds,
     message: String(s.message || "").trim() || DEFAULTS.message,
   };

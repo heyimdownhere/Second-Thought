@@ -157,11 +157,9 @@
       font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       -webkit-font-smoothing: antialiased; text-align: center;
     }
-    @media (prefers-color-scheme: dark) {
-      .screen {
-        --bg: #141317; --fg: #ecebf0; --muted: #9a97a3; --track: #2b2a31;
-        --accent: #a6a4ff; --accent-fg: #15142a; --ghost: rgba(236,235,240,.08);
-      }
+    .screen.dark {
+      --bg: #141317; --fg: #ecebf0; --muted: #9a97a3; --track: #2b2a31;
+      --accent: #a6a4ff; --accent-fg: #15142a; --ghost: rgba(236,235,240,.08);
     }
     .card {
       width: 100%; max-width: 380px;
@@ -270,19 +268,21 @@
       ["visibility", "visible"],
       ["opacity", "1"],
       ["pointer-events", "auto"],
-      ["background", "#141317"],
     ]) {
       hs.setProperty(prop, value, "important");
     }
-    if (!matchMedia("(prefers-color-scheme: dark)").matches) {
-      hs.setProperty("background", "#f5f3ee", "important");
-    }
+    // Theme setting: "dark", "light", or "auto" (follow the system).
+    const dark =
+      info.theme === "dark" ||
+      (info.theme !== "light" && matchMedia("(prefers-color-scheme: dark)").matches);
+    hs.setProperty("background", dark ? "#141317" : "#f5f3ee", "important");
 
     const root = host.attachShadow({ mode: "closed" });
     const style = document.createElement("style");
     style.textContent = CSS;
     root.appendChild(style);
     root.appendChild(buildScreen());
+    if (dark) root.querySelector(".screen").classList.add("dark");
 
     const $ = (sel) => root.querySelector(sel);
     const els = {
