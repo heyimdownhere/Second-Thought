@@ -244,20 +244,28 @@ browser.runtime.onMessage.addListener((msg, sender) => {
 });
 
 // A tab that leaves the site loses its pass and its "reopened" mark.
-// about:blank is skipped: a tab can show it briefly while loading.
+//
+// No "tabs" permission: Firefox only reveals a tab's URL when the add-on has
+// host access to it, i.e. when the tab is on one of the user's (granted)
+// sites. So a missing URL means the tab is somewhere else. "status" is in the
+// filter because it fires on every page load even when the URL is hidden.
 browser.tabs.onUpdated.addListener(
-  async (tabId, changeInfo) => {
-    if (!changeInfo.url || changeInfo.url === "about:blank") return;
+  async (tabId, changeInfo, tab) => {
+    const url = changeInfo.url || (tab && tab.url);
+    if (url === "about:blank") return;
+    // A hidden URL can also be a brief placeholder while a page loads, so
+    // only trust it once the page has finished loading.
+    if (!url && changeInfo.status !== "complete") return;
     await sessionReady;
     const keys = [allowKey(tabId), restoredKey(tabId)];
     const passes = await browser.storage.session.get(keys);
     if (!Object.keys(passes).length) return;
     const { sites } = await getSettings();
-    const site = siteForUrl(changeInfo.url, sites);
+    const site = url ? siteForUrl(url, sites) : null;
     const stale = keys.filter((k) => k in passes && passes[k] !== site);
     if (stale.length) await browser.storage.session.remove(stale);
   },
-  { properties: ["url"] }
+  { properties: ["url", "status"] }
 );
 
 browser.tabs.onRemoved.addListener((tabId) => {
