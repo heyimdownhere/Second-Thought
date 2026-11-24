@@ -36,7 +36,7 @@
   },
   "browser_specific_settings": {
     "gecko": {
-      "id": "second-thought@heyimdownhere",
+      "id": "{0b0ed808-5c0b-4317-a6f0-6379b24a7440}",
       "strict_min_version": "140.0",
       "data_collection_permissions": {
         "required": [

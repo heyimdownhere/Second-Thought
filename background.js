@@ -8,6 +8,11 @@
  *
  * storage.local:   sites, seconds, message, mode, awayMinutes, turnedBack,
  *                  "active:<site>" (last time a visible tab was on <site>)
+ * Private windows: nothing from a private tab is ever written to
+ * storage.local (Mozilla policy: private browsing data must not be stored).
+ * Their per-tab passes live only in storage.session, which is in memory
+ * and is removed when the tab closes.
+ *
  * storage.session: "allow:<tabId>"    (the site this tab already got past)
  *                  "restored:<tabId>" (tab was already open on <site> when
  *                                      Firefox started)
@@ -123,6 +128,7 @@ async function scanOpenTabs() {
   const [{ sites }, tabs] = await Promise.all([getSettings(), browser.tabs.query({})]);
   const marks = { scanned: true };
   for (const tab of tabs) {
+    if (tab.incognito) continue;
     const site = siteForUrl(tab.url, sites);
     if (site) marks[restoredKey(tab.id)] = site;
   }
@@ -143,7 +149,7 @@ async function takeRestoredMark(tabId) {
 /* ---------- visit logic ---------- */
 
 // reason: "load" (page loaded) or "return" (tab became visible again).
-async function handleCheck(host, tabId, reason) {
+async function handleCheck(host, tabId, reason, priv) {
   await sessionReady;
   const s = await getSettings();
   const site = siteForHost(host, s.sites);
@@ -162,10 +168,8 @@ async function handleCheck(host, tabId, reason) {
     prompt = s.askOnReturn && (s.mode !== "away" || (await awayTooLong()));
   } else if (restored === site && !s.askOnRestore) {
     prompt = false;
-    await Promise.all([
-      browser.storage.session.set({ [allowKey(tabId)]: site }),
-      browser.storage.local.set({ [activeKey(site)]: Date.now() }),
-    ]);
+    await browser.storage.session.set({ [allowKey(tabId)]: site });
+    if (!priv) await browser.storage.local.set({ [activeKey(site)]: Date.now() });
   } else if (s.mode === "away") {
     prompt = await awayTooLong();
   } else if (tabId != null) {
@@ -183,24 +187,28 @@ async function handleCheck(host, tabId, reason) {
   };
 }
 
-async function handleContinue(site, tabId) {
+async function handleContinue(site, tabId, priv) {
   const { sites } = await getSettings();
   if (!sites.includes(site)) return;
-  const writes = [browser.storage.local.set({ [activeKey(site)]: Date.now() })];
+  const writes = [];
+  if (!priv) writes.push(browser.storage.local.set({ [activeKey(site)]: Date.now() }));
   if (tabId != null) writes.push(browser.storage.session.set({ [allowKey(tabId)]: site }));
   await Promise.all(writes);
 }
 
-async function markActive(site) {
+async function markActive(site, priv) {
+  if (priv) return;
   const { sites } = await getSettings();
   if (sites.includes(site)) {
     await browser.storage.local.set({ [activeKey(site)]: Date.now() });
   }
 }
 
-async function handleNope(tabId, closeTab) {
-  const { turnedBack } = await browser.storage.local.get({ turnedBack: 0 });
-  await browser.storage.local.set({ turnedBack: (Number(turnedBack) || 0) + 1 });
+async function handleNope(tabId, closeTab, priv) {
+  if (!priv) {
+    const { turnedBack } = await browser.storage.local.get({ turnedBack: 0 });
+    await browser.storage.local.set({ turnedBack: (Number(turnedBack) || 0) + 1 });
+  }
   if (closeTab) await closeTabSafely(tabId);
 }
 
@@ -217,15 +225,16 @@ async function closeTabSafely(tabId) {
 
 browser.runtime.onMessage.addListener((msg, sender) => {
   const tabId = sender.tab ? sender.tab.id : undefined;
+  const priv = !!(sender.tab && sender.tab.incognito);
   switch (msg && msg.type) {
     case "check":
-      return handleCheck(msg.host, tabId, msg.reason === "return" ? "return" : "load");
+      return handleCheck(msg.host, tabId, msg.reason === "return" ? "return" : "load", priv);
     case "continue":
-      return handleContinue(msg.site, tabId);
+      return handleContinue(msg.site, tabId, priv);
     case "active":
-      return markActive(msg.site);
+      return markActive(msg.site, priv);
     case "nope":
-      return handleNope(tabId, !!msg.close);
+      return handleNope(tabId, !!msg.close, priv);
     case "close":
       return closeTabSafely(tabId);
   }

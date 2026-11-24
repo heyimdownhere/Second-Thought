@@ -103,7 +103,9 @@ Every Firefox add-on has to be signed by Mozilla. You can publish it in one of t
    - **Screenshots:** the files in `store/` (`pause-desktop-*.png` are 1280×800, AMO's preferred size).
    - **Icon:** taken from `icons/icon-128.png` automatically.
 5. **Notes to reviewer** (paste this, it makes review faster):
-   > No build step and no remote code; all files are hand-written and unminified. Permissions: `storage` (settings), `scripting` (register the content script only for sites the user adds), `tabs` (see a tab's URL change so a per-tab "continued" pass is cleared when the tab leaves the site, and close the tab when the user taps "Nope" in a fresh tab). Host access is requested per site at runtime via `optional_host_permissions`; nothing is requested at install. No data leaves the browser.
+   > No build step, no remote code, no third-party libraries; all files are hand-written and unminified. Permissions: `storage` (settings), `scripting` (registers the content script only for sites the user adds), `tabs` (reads tab URLs so a per-tab "continued" pass is dropped when that tab moves to a different site, and so tabs already open at startup can be recognised). Host access is requested per site at runtime via `optional_host_permissions`; nothing is requested at install. No data leaves the browser (`data_collection_permissions: none`). Settings and a per-site "last active" time are kept in `storage.local`; nothing from private windows is written there (private tabs only get an in-memory per-tab pass in `storage.session`). The pause screen is user-configured and only closes a tab or goes back when the user taps "Nope".
+   >
+   > To test: open the toolbar popup, add `example.com`, allow the permission, then open https://example.com. A pause screen appears; "Continue" shows after 10 seconds. No account or credentials needed.
 6. **Review:** automatic validation finishes in seconds. A human review may follow, which can take anywhere from hours to a couple of weeks. You'll get an email either way. Once approved, the add-on is live for desktop and Android.
 
 **Description** (for the listing's longer field):
@@ -116,8 +118,10 @@ Every Firefox add-on has to be signed by Mozilla. You can publish it in one of t
 > • "Continue" only appears once the countdown ends, and the countdown only runs while you're looking at the tab.
 > • The page stays hidden and any video or audio stays paused until you continue.
 > • Choose to be asked every time, or only after you've been away for a while.
+> • Optionally ask again when you switch back to the tab, or after Firefox restarts.
+> • Pick one of five messages, or write your own.
 >
-> The settings fit on one screen: your sites, the wait time, your message, and when to ask. No accounts, no tracking, no sync. Firefox only asks for access to the sites you add.
+> The settings fit on one screen: your sites, the wait time, your message, and when to ask. No accounts, no tracking, no sync, and nothing leaves your browser. Firefox only asks for access to the sites you add, and nothing is saved from private windows.
 >
 > Works on Firefox for desktop and Android.
 
@@ -128,6 +132,32 @@ npx web-ext sign --channel=listed --api-key=$AMO_JWT_ISSUER --api-secret=$AMO_JW
 ```
 
 Get API keys from **Developer Hub → Tools → Manage API Keys**. Keep them out of git.
+
+### Automated releases from GitHub
+
+Two GitHub Actions workflows live in `.github/workflows/`:
+
+- **Build** (`ci.yml`) runs on every push and pull request. It lints, builds, and attaches the zip to the run. Open the run in the **Actions** tab and download it under **Artifacts**.
+- **Release** (`release.yml`) runs when you push a tag like `v1.0.1`. It checks that the tag matches `"version"` in `manifest.json`, lints, builds, and creates a GitHub Release with the zip. If the AMO keys below are set, it also submits that version to addons.mozilla.org for review.
+
+**One-time setup:**
+
+1. Submit the **first** version by hand (see *Public listing* above). The store listing (name, description, screenshots) has to exist before automated updates can be sent to it.
+2. In the AMO Developer Hub, open **Tools → Manage API Keys** and generate credentials.
+3. In the GitHub repo, open **Settings → Secrets and variables → Actions** and add two repository secrets: `AMO_JWT_ISSUER` (the "JWT issuer") and `AMO_JWT_SECRET` (the "JWT secret").
+
+**To release a new version:**
+
+```sh
+# 1. bump "version" in manifest.json, e.g. to 1.0.1, and commit it
+git commit -am "Release 1.0.1"
+git push
+# 2. tag that commit and push the tag
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+The Release workflow does the rest. Mozilla emails you when the update is approved, and Firefox (desktop and Android) installs it automatically for everyone. Without the AMO secrets, you still get the GitHub Release and can upload its zip by hand.
 
 ### Unlisted (sign it just for yourself)
 
